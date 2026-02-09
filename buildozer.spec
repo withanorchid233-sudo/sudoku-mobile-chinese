@@ -32,7 +32,7 @@ version = 2.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,pygame
+requirements = python3==3.9.13,pygame==2.1.0,cython==0.29.33
 
 # (str) Supported orientation (landscape, sensorLandscape, portrait or sensorPortrait)
 orientation = portrait
@@ -77,6 +77,7 @@ log_level = 2
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 1
+
 
 
 
