@@ -16,7 +16,7 @@ source.dir = .
 # This specifies main_mobile.py as the entry point for mobile version
 # It will default to Chinese language
 # For English version, run: python main_mobile.py en
-source.main_py = main_mobile.py
+source.main_py = main.py
 
 # (list) Source files to include (let empty to include all the files)
 source.include_exts = py,png,jpg,kv,atlas,txt,md
@@ -77,6 +77,7 @@ log_level = 2
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 1
+
 
 
 
