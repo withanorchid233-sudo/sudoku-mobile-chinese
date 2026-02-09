@@ -10,26 +10,18 @@ import time
 from sudoku_logic import SudokuLogic
 from sudoku_ui import SudokuUIManager
 
-# Mobile-friendly constants
-def get_screen_size():
-    """获取屏幕尺寸（自适应）"""
-    try:
-        # 尝试获取实际屏幕尺寸
-        info = pygame.display.Info()
-        width = min(info.current_w, 800)
-        height = min(info.current_h, 1200)
-        return width, height
-    except:
-        # 默认尺寸
-        return 800, 1200
+# Mobile-friendly helpers
+def get_safe_fonts(size, bold=False):
+    """安卓兼容的字体获取逻辑"""
+    test_fonts = ["sans-serif", "noto sans cjk jp", "arial", "droid sans fallback", None]
+    for font_name in test_fonts:
+        try:
+            return pygame.font.SysFont(font_name, size, bold=bold)
+        except:
+            continue
+    return pygame.font.Font(None, size)
 
-SCREEN_WIDTH, SCREEN_HEIGHT = get_screen_size()
-GRID_SIZE = min(int(SCREEN_WIDTH * 0.9), 500)
-CELL_SIZE = GRID_SIZE // 9
-GRID_X = (SCREEN_WIDTH - GRID_SIZE) // 2
-GRID_Y = int(SCREEN_HEIGHT * 0.15)
-
-# Colors
+# Colors (Static)
 BG_COLOR = (10, 15, 30)
 GRID_COLOR = (100, 150, 200)
 FIXED_COLOR = (150, 200, 255)
@@ -40,24 +32,32 @@ CORRECT_COLOR = (100, 255, 150)
 
 class SudokuGameMobile:
     def __init__(self, language='en'):
-        pygame.init()
+        if not pygame.get_init():
+            pygame.init()
         
-        # Mobile fullscreen
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Sudoku Mobile")
+        # 1. 动态获取屏幕尺寸（最稳妥的顺序）
+        info = pygame.display.Info()
+        self.width = info.current_w if info.current_w > 0 else 800
+        self.height = info.current_h if info.current_h > 0 else 1200
+        
+        # 2. 全屏初始化
+        self.screen = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN | pygame.SCALED)
+        pygame.display.set_caption("Sudoku 3D")
         self.clock = pygame.time.Clock()
         
-        # Language setting
-        self.language = language
-        self.texts = self._get_texts()
+        # 3. 计算布局参数
+        self.grid_size = min(int(self.width * 0.95), 550)
+        self.cell_size = self.grid_size // 9
+        self.grid_x = (self.width - self.grid_size) // 2
+        self.grid_y = int(self.height * 0.12)
         
-        # Fonts (scaled for mobile)
-        font_scale = SCREEN_WIDTH / 800
-        self.title_font = pygame.font.SysFont("arial", int(40 * font_scale), bold=True)
-        self.cell_font = pygame.font.SysFont("arial", int(28 * font_scale), bold=True)
-        self.small_font = pygame.font.SysFont("arial", int(16 * font_scale), bold=True)
-        self.button_font = pygame.font.SysFont("arial", int(18 * font_scale), bold=True)
-        self.number_button_font = pygame.font.SysFont("arial", int(24 * font_scale), bold=True)
+        # 4. 字体缩放系统
+        font_scale = self.width / 400
+        self.title_font = get_safe_fonts(int(24 * font_scale), bold=True)
+        self.cell_font = get_safe_fonts(int(18 * font_scale), bold=True)
+        self.small_font = get_safe_fonts(int(10 * font_scale), bold=True)
+        self.button_font = get_safe_fonts(int(12 * font_scale), bold=True)
+        self.number_button_font = get_safe_fonts(int(16 * font_scale), bold=True)
         
         # Managers
         self.logic = SudokuLogic()
@@ -82,13 +82,13 @@ class SudokuGameMobile:
     
     def setup_number_pad(self):
         """设置触摸数字键盘"""
-        pad_y = GRID_Y + GRID_SIZE + 10
-        button_size = CELL_SIZE
-        gap = 5
+        pad_y = self.grid_y + self.grid_size + 15
+        button_size = self.cell_size
+        gap = 4
         
         # 计算按钮起始位置（居中）
         total_width = button_size * 9 + gap * 8
-        start_x = (SCREEN_WIDTH - total_width) // 2
+        start_x = (self.width - total_width) // 2
         
         self.number_buttons = []
         for i in range(1, 10):
@@ -96,13 +96,12 @@ class SudokuGameMobile:
             rect = pygame.Rect(x, pad_y, button_size, button_size)
             self.number_buttons.append({'rect': rect, 'number': i})
         
-        # Delete/Clear button
-        self.delete_btn = pygame.Rect(GRID_X, pad_y + button_size + 10, 
-                                       GRID_SIZE // 3, 40)
-        self.hint_btn = pygame.Rect(GRID_X + GRID_SIZE // 3 + 5, pad_y + button_size + 10,
-                                     GRID_SIZE // 3, 40)
-        self.check_btn = pygame.Rect(GRID_X + 2 * GRID_SIZE // 3 + 10, pad_y + button_size + 10,
-                                      GRID_SIZE // 3 - 10, 40)
+        # 功能按钮
+        btn_y = pad_y + button_size + 15
+        btn_w = self.grid_size // 3 - 5
+        self.delete_btn = pygame.Rect(self.grid_x, btn_y, btn_w, 45)
+        self.hint_btn = pygame.Rect(self.grid_x + btn_w + 5, btn_y, btn_w, 45)
+        self.check_btn = pygame.Rect(self.grid_x + 2 * (btn_w + 5), btn_y, btn_w, 45)
     
     def _get_texts(self):
         """根据语言返回文本字典"""
@@ -169,10 +168,9 @@ class SudokuGameMobile:
                 pygame.quit()
                 sys.exit()
             
-            if event.type == pygame.MOUSEBUTTONDOWN or event.type == pygame.FINGERDOWN:
                 if event.type == pygame.FINGERDOWN:
-                    # Convert finger coordinates to pixel coordinates
-                    pos = (int(event.x * SCREEN_WIDTH), int(event.y * SCREEN_HEIGHT))
+                    # 获取手指触屏的相对坐标并转换为像素坐标
+                    pos = (int(event.x * self.width), int(event.y * self.height))
                 else:
                     pos = event.pos
                 
@@ -187,11 +185,11 @@ class SudokuGameMobile:
         """处理菜单触摸"""
         difficulties = ["easy", "medium", "hard", "expert"]
         button_height = 60
-        button_width = int(SCREEN_WIDTH * 0.7)
-        start_y = SCREEN_HEIGHT // 3
+        button_width = int(self.width * 0.7)
+        start_y = self.height // 3
         
         for i, diff in enumerate(difficulties):
-            btn_rect = pygame.Rect((SCREEN_WIDTH - button_width) // 2,
+            btn_rect = pygame.Rect((self.width - button_width) // 2,
                                    start_y + i * (button_height + 15),
                                    button_width, button_height)
             if btn_rect.collidepoint(pos):
@@ -200,10 +198,10 @@ class SudokuGameMobile:
     def handle_game_touch(self, pos):
         """处理游戏触摸"""
         # Check grid cells
-        if GRID_X <= pos[0] < GRID_X + GRID_SIZE and \
-           GRID_Y <= pos[1] < GRID_Y + GRID_SIZE:
-            col = (pos[0] - GRID_X) // CELL_SIZE
-            row = (pos[1] - GRID_Y) // CELL_SIZE
+        if self.grid_x <= pos[0] < self.grid_x + self.grid_size and \
+           self.grid_y <= pos[1] < self.grid_y + self.grid_size:
+            col = (pos[0] - self.grid_x) // self.cell_size
+            row = (pos[1] - self.grid_y) // self.cell_size
             if (row, col) not in self.fixed_cells:
                 self.selected_cell = (row, col)
             return
@@ -274,11 +272,11 @@ class SudokuGameMobile:
     def draw_menu(self):
         """绘制菜单"""
         self.ui_manager.draw_neon_text(self.texts['title'], 
-                                       (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 6),
+                                       (self.width // 2, self.height // 6),
                                        self.title_font, (0, 255, 255))
         
         self.ui_manager.draw_3d_text(self.texts['select_difficulty'],
-                                     (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4),
+                                     (self.width // 2, self.height // 4),
                                      self.small_font, (150, 200, 255), depth=2)
         
         difficulties = [
@@ -289,11 +287,11 @@ class SudokuGameMobile:
         ]
         
         button_height = 60
-        button_width = int(SCREEN_WIDTH * 0.7)
-        start_y = SCREEN_HEIGHT // 3
+        button_width = int(self.width * 0.7)
+        start_y = self.height // 3
         
         for i, (label, diff) in enumerate(difficulties):
-            btn_rect = pygame.Rect((SCREEN_WIDTH - button_width) // 2,
+            btn_rect = pygame.Rect((self.width - button_width) // 2,
                                    start_y + i * (button_height + 15),
                                    button_width, button_height)
             self.ui_manager.draw_button(btn_rect, label, self.button_font, False)
@@ -302,7 +300,7 @@ class SudokuGameMobile:
         """绘制游戏界面"""
         # Title
         title_str = f"{self.texts['title']} - {self.texts[self.difficulty]}"
-        self.ui_manager.draw_3d_text(title_str, (SCREEN_WIDTH // 2, 30),
+        self.ui_manager.draw_3d_text(title_str, (self.width // 2, 30),
                                      self.small_font, (0, 255, 255), depth=2)
         
         # Timer
@@ -311,7 +309,7 @@ class SudokuGameMobile:
             mins = elapsed // 60
             secs = elapsed % 60
             timer_str = f"{self.texts['time']}: {mins:02d}:{secs:02d}"
-            self.ui_manager.draw_3d_text(timer_str, (SCREEN_WIDTH // 2, 60),
+            self.ui_manager.draw_3d_text(timer_str, (self.width // 2, 60),
                                         self.small_font, (255, 255, 255), depth=2)
         
         # Grid
@@ -329,23 +327,23 @@ class SudokuGameMobile:
                                     self.small_font, False)
     
     def draw_grid(self):
-        """绘制网格（与PC版相同）"""
-        grid_rect = pygame.Rect(GRID_X, GRID_Y, GRID_SIZE, GRID_SIZE)
+        """绘制网格（自适应布局）"""
+        grid_rect = pygame.Rect(self.grid_x, self.grid_y, self.grid_size, self.grid_size)
         
-        # Shadow
-        shadow_rect = pygame.Rect(GRID_X + 4, GRID_Y + 4, GRID_SIZE, GRID_SIZE)
-        shadow_surf = pygame.Surface((GRID_SIZE, GRID_SIZE), pygame.SRCALPHA)
-        shadow_surf.fill((0, 0, 0, 100))
+        # 阴影
+        shadow_rect = pygame.Rect(self.grid_x + 3, self.grid_y + 3, self.grid_size, self.grid_size)
+        shadow_surf = pygame.Surface((self.grid_size, self.grid_size), pygame.SRCALPHA)
+        shadow_surf.fill((0, 0, 0, 80))
         self.screen.blit(shadow_surf, shadow_rect.topleft)
         
         self.ui_manager.draw_glass_rect(grid_rect, color=(15, 25, 40), alpha=240)
         
-        # Draw cells
+        # 绘制格子
         for i in range(9):
             for j in range(9):
-                x = GRID_X + j * CELL_SIZE
-                y = GRID_Y + i * CELL_SIZE
-                cell_rect = pygame.Rect(x, y, CELL_SIZE, CELL_SIZE)
+                x = self.grid_x + j * self.cell_size
+                y = self.grid_y + i * self.cell_size
+                cell_rect = pygame.Rect(x, y, self.cell_size, self.cell_size)
                 
                 is_selected = self.selected_cell == (i, j)
                 self.ui_manager.draw_3d_cell(cell_rect, is_selected)
@@ -359,22 +357,22 @@ class SudokuGameMobile:
                     else:
                         color = (255, 255, 255)
                     
-                    center_pos = (x + CELL_SIZE // 2, y + CELL_SIZE // 2)
+                    center_pos = (x + self.cell_size // 2, y + self.cell_size // 2)
                     self.ui_manager.draw_3d_number(num, center_pos, self.cell_font, color, depth=3)
         
-        # Draw grid lines (simplified for mobile)
+        # 绘制网格线
         for i in range(10):
-            thickness = 4 if i % 3 == 0 else 1
-            color = (0, 200, 255) if i % 3 == 0 else (80, 120, 160)
+            thickness = 3 if i % 3 == 0 else 1
+            color = (0, 200, 255) if i % 3 == 0 else (60, 100, 140)
             
-            # Horizontal
+            # 横线
             pygame.draw.line(self.screen, color,
-                           (GRID_X, GRID_Y + i * CELL_SIZE),
-                           (GRID_X + GRID_SIZE, GRID_Y + i * CELL_SIZE), thickness)
-            # Vertical
+                           (self.grid_x, self.grid_y + i * self.cell_size),
+                           (self.grid_x + self.grid_size, self.grid_y + i * self.cell_size), thickness)
+            # 纵线
             pygame.draw.line(self.screen, color,
-                           (GRID_X + i * CELL_SIZE, GRID_Y),
-                           (GRID_X + i * CELL_SIZE, GRID_Y + GRID_SIZE), thickness)
+                           (self.grid_x + i * self.cell_size, self.grid_y),
+                           (self.grid_x + i * self.cell_size, self.grid_y + self.grid_size), thickness)
     
     def draw_number_pad(self):
         """绘制数字键盘"""
@@ -393,30 +391,30 @@ class SudokuGameMobile:
         """绘制胜利画面"""
         self.draw_game()
         
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
         
-        panel_rect = pygame.Rect(SCREEN_WIDTH // 10, SCREEN_HEIGHT // 4,
-                                 SCREEN_WIDTH * 4 // 5, SCREEN_HEIGHT // 2)
+        panel_rect = pygame.Rect(self.width // 10, self.height // 4,
+                                 self.width * 4 // 5, self.height // 2)
         self.ui_manager.draw_glass_rect(panel_rect, alpha=230, border_color=(0, 255, 150))
         
         self.ui_manager.draw_neon_text(self.texts['victory'],
-                                       (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 3),
+                                       (self.width // 2, self.height // 3),
                                        self.title_font, (0, 255, 150), glow_color=(0, 200, 100))
         
         mins = int(self.elapsed_time // 60)
         secs = int(self.elapsed_time % 60)
         time_str = f"{self.texts['time']}: {mins:02d}:{secs:02d}"
-        self.ui_manager.draw_3d_text(time_str, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2),
+        self.ui_manager.draw_3d_text(time_str, (self.width // 2, self.height // 2),
                                     self.button_font, (255, 255, 255), depth=2)
         
         diff_str = f"{self.texts['difficulty_label']}: {self.texts[self.difficulty]}"
-        self.ui_manager.draw_3d_text(diff_str, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50),
+        self.ui_manager.draw_3d_text(diff_str, (self.width // 2, self.height // 2 + 50),
                                     self.button_font, (150, 200, 255), depth=2)
         
         self.ui_manager.draw_3d_text(self.texts['press_to_continue'],
-                                    (SCREEN_WIDTH // 2, SCREEN_HEIGHT * 2 // 3),
+                                    (self.width // 2, self.height * 2 // 3),
                                     self.small_font, (150, 150, 150), depth=1)
     
     def run(self):
