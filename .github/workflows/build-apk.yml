@@ -1,4 +1,4 @@
-name: Build Sudoku APK Pro
+name: Build Sudoku APK Pro V2
 
 on:
   push:
@@ -10,23 +10,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 检出代码
+    - name: 📥 检出代码
       uses: actions/checkout@v4
 
-    - name: 缓存 Buildozer 环境
-      uses: actions/cache@v3
+    - name: 🐍 设置 Python 3.9
+      uses: actions/setup-python@v5
       with:
-        path: .buildozer
-        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        python-version: '3.9'
 
-    - name: 使用专业版 Buildozer 构建
-      uses: ArtemSerebennikov/buildozer-action@v1
+    - name: ☕ 设置 JDK 17
+      uses: actions/setup-java@v4
       with:
-        buildozer_version: master
-        python_version: 3.9
+        distribution: 'temurin'
+        java-version: '17'
 
-    - name: 上传构建产物
-      uses: actions/upload-artifact@v3
+    - name: 📦 安装构建依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git zip unzip wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+        pip install --upgrade pip
+        pip install cython==0.29.33 buildozer
+
+    - name: 🏗️ 运行云端打包 (Buildozer)
+      run: |
+        # 这一步最关键，如果这里有输出，一定会显示在日志里
+        buildozer android debug
+
+    - name: 📤 上传打包好的 APK
+      uses: actions/upload-artifact@v4
       with:
         name: Sudoku-3D-APK
         path: bin/*.apk
