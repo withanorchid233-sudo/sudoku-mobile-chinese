@@ -1,38 +1,39 @@
 """
-Sudoku Mobile - Main Entry Point
-数独移动版 - 主入口
+Sudoku Mobile - SAFE MODE
+数独移动版 - 极简排错版
 """
 
 import os
 import sys
 
-# 1. 强制设置安卓环境环境变量，防止视频驱动崩溃
+# 1. 强制使用安卓最基础的驱动，禁用所有加速
 os.environ['SDL_VIDEODRIVER'] = 'android'
-os.environ['KIVY_NO_ARGS'] = '1'
+os.environ['SDL_VIDEO_ALLOW_SCREENSAVER'] = '1'
 
 import pygame
 
 def main():
-    # 2. 在导入游戏逻辑前先初始化 Pygame
     try:
-        pygame.init()
-    except Exception as e:
-        print(f"Pygame init failed: {e}")
-        return
-
-    # 3. 延迟导入，确保 Pygame 环境已稳定
-    # 这样可以防止在安卓上产生循环导入或资源锁死
-    from game_mobile import SudokuGameMobile
-    
-    try:
-        # 直接启动中文版
-        game = SudokuGameMobile(language='zh')
+        # 非常重要：在某些安卓版本上，必须先启动这个
+        pygame.display.init()
+        pygame.font.init()
+        
+        # 获取屏幕但不请求全屏或硬件加速，只求“能动”
+        info = pygame.display.Info()
+        screen = pygame.display.set_mode((info.current_w, info.current_h))
+        
+        # 此时再导入剥离了复杂UI的游戏类
+        from game_mobile import SudokuGameMobile
+        
+        game = SudokuGameMobile(manual_screen=screen)
         game.run()
     except Exception as e:
-        # 记录崩溃日志（尝试写在私有目录）
+        # 如果还是崩，这行字一定会救命
+        import traceback
+        error_msg = traceback.format_exc()
         try:
             with open("crash_log.txt", "w") as f:
-                f.write(str(e))
+                f.write(error_msg)
         except:
             pass
         pygame.quit()

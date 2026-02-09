@@ -8,7 +8,9 @@ import pygame
 import sys
 import time
 from sudoku_logic import SudokuLogic
-from sudoku_ui import SudokuUIManager
+from sudoku_logic import SudokuLogic
+# 💉 排雷：暂时禁用可能导致崩溃的复杂 UI 管理器
+# from sudoku_ui import SudokuUIManager
 
 # Mobile-friendly helpers
 def get_safe_fonts(size, bold=False):
@@ -31,37 +33,29 @@ ERROR_COLOR = (255, 100, 100)
 CORRECT_COLOR = (100, 255, 150)
 
 class SudokuGameMobile:
-    def __init__(self, language='en'):
-        # 确保 pygame 已初始化
-        if not pygame.get_init():
-            pygame.init()
-        
-        # 1. 设置屏幕（强制使用 SCALED 模式，提高安卓兼容性）
-        info = pygame.display.Info()
-        self.width = info.current_w if info.current_w > 0 else 800
-        self.height = info.current_h if info.current_h > 0 else 1200
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.SCALED | pygame.FULLSCREEN)
-        
-        pygame.display.set_caption("Sudoku 3D")
+    def __init__(self, language='zh', manual_screen=None):
+        # 1. 资源与屏幕初始化
+        self.screen = manual_screen
+        self.width, self.height = self.screen.get_size()
         self.clock = pygame.time.Clock()
         
-        # 2. 语言设置
+        # 2. 文字系统（极简字体）
         self.language = language
         self.texts = self._get_texts()
-        
-        # 3. 字体延迟加载优化
         font_scale = self.width / 400
         self.title_font = get_safe_fonts(int(24 * font_scale), bold=True)
         self.cell_font = get_safe_fonts(int(18 * font_scale), bold=True)
-        self.small_font = get_safe_fonts(int(10 * font_scale), bold=True)
-        self.button_font = get_safe_fonts(int(12 * font_scale), bold=True)
-        self.number_button_font = get_safe_fonts(int(16 * font_scale), bold=True)
+        self.small_font = get_safe_fonts(int(10 * font_scale))
         
-        # 4. 逻辑引擎
+        # 3. 布局逻辑
+        self.grid_size = int(self.width * 0.9)
+        self.cell_size = self.grid_size // 9
+        self.grid_x = (self.width - self.grid_size) // 2
+        self.grid_y = int(self.height * 0.1)
+        
+        # 4. 逻辑引擎（禁用背景粒子）
         self.logic = SudokuLogic()
-        
-        # 🚀 关键修改：UI 管理器现在不带参数，稍后手动启动背景
-        self.ui_manager = SudokuUIManager(self.screen)
+        self.ui_manager = None # 极简模式下不使用 UI 管理器
         
         # 5. 布局参数计算
         self.grid_size = min(int(self.width * 0.92), 520)
@@ -261,19 +255,57 @@ class SudokuGameMobile:
                         self.errors.add((i, j))
     
     def draw(self):
-        """绘制游戏画面"""
-        self.screen.fill(BG_COLOR)
-        current_time = pygame.time.get_ticks()
-        self.ui_manager.draw_particle_bg(current_time)
+        """极简绘图模式：只使用最基础的指令"""
+        self.screen.fill((10, 20, 30)) # 纯黑蓝底
         
         if self.state == "menu":
-            self.draw_menu()
+            # 绘制极简标题
+            text = self.title_font.render(self.texts['title'], True, (0, 255, 255))
+            rect = text.get_rect(center=(self.width // 2, self.height // 6))
+            self.screen.blit(text, rect)
+            self.draw_menu_lite()
         elif self.state == "playing":
-            self.draw_game()
-        elif self.state == "won":
-            self.draw_won()
+            self.draw_game_lite()
         
         pygame.display.flip()
+
+    def draw_menu_lite(self):
+        """简单按钮绘制"""
+        difficulties = [("简单", "easy"), ("中等", "medium"), ("困难", "hard"), ("专家", "expert")]
+        btn_w, btn_h = int(self.width * 0.7), 60
+        for i, (label, diff) in enumerate(difficulties):
+            rect = pygame.Rect((self.width - btn_w) // 2, self.height // 3 + i * 80, btn_w, btn_h)
+            pygame.draw.rect(self.screen, (30, 50, 80), rect) # 纯色块
+            pygame.draw.rect(self.screen, (0, 200, 255), rect, 2) # 边框
+            t = self.cell_font.render(label, True, (255, 255, 255))
+            self.screen.blit(t, t.get_rect(center=rect.center))
+
+    def draw_game_lite(self):
+        """简单棋盘绘制"""
+        # 绘制背景框
+        pygame.draw.rect(self.screen, (20, 30, 50), (self.grid_x, self.grid_y, self.grid_size, self.grid_size))
+        
+        # 绘制格子
+        for i in range(9):
+            for j in range(9):
+                rect = pygame.Rect(self.grid_x + j * self.cell_size, self.grid_y + i * self.cell_size, 
+                                   self.cell_size, self.cell_size)
+                # 选中的格子变亮
+                color = (40, 60, 100) if self.selected_cell == (i, j) else (20, 30, 50)
+                pygame.draw.rect(self.screen, color, rect)
+                pygame.draw.rect(self.screen, (60, 80, 120), rect, 1)
+                
+                num = self.current_board[i][j]
+                if num != 0:
+                    c = (150, 200, 255) if (i, j) in self.fixed_cells else (255, 255, 255)
+                    t = self.cell_font.render(str(num), True, c)
+                    self.screen.blit(t, t.get_rect(center=rect.center))
+        
+        # 绘制数字键
+        for btn in self.number_buttons:
+            pygame.draw.rect(self.screen, (30, 45, 70), btn['rect'])
+            t = self.cell_font.render(str(btn['number']), True, (255, 255, 255))
+            self.screen.blit(t, t.get_rect(center=btn['rect'].center))
     
     def draw_menu(self):
         """绘制菜单"""
