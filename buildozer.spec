@@ -55,6 +55,12 @@ android.ndk = 25b
 # (bool) Use --private data storage (True) or --dir public storage (False)
 android.private_storage = True
 
+# (str) Android SDK build-tools version to use
+android.build_tools_version = 33.0.2
+
+# (bool) If True, then automatically accept SDK license
+android.accept_sdk_license = True
+
 # (str) Android logcat filters to use
 android.logcat_filters = *:S python:D
 
@@ -71,3 +77,4 @@ log_level = 2
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 1
+
