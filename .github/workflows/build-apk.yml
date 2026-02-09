@@ -1,4 +1,4 @@
-name: Build Sudoku APK Pro V2
+name: Build Sudoku APK Pro V3
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # 锁定一个稳定的版本
 
     steps:
     - name: 📥 检出代码
@@ -27,13 +27,14 @@ jobs:
     - name: 📦 安装构建依赖
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-        pip install --upgrade pip
+        sudo apt-get install -y git zip unzip wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev || \
+        sudo apt-get install -y git zip unzip wget autoconf libtool pkg-config zlib1g-dev libncurses6-dev libncursesw6-dev libtinfo6 cmake libffi-dev libssl-dev
+        
+        python -m pip install --upgrade pip
         pip install cython==0.29.33 buildozer
 
     - name: 🏗️ 运行云端打包 (Buildozer)
       run: |
-        # 这一步最关键，如果这里有输出，一定会显示在日志里
         buildozer android debug
 
     - name: 📤 上传打包好的 APK
