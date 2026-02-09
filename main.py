@@ -6,26 +6,36 @@ Sudoku Mobile - Main Entry Point
 import os
 import sys
 
-# 路径保护：确保在安卓环境下的依赖加载
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
+# 1. 强制设置安卓环境环境变量，防止视频驱动崩溃
+os.environ['SDL_VIDEODRIVER'] = 'android'
+os.environ['KIVY_NO_ARGS'] = '1'
 
 import pygame
-from game_mobile import SudokuGameMobile
 
-if __name__ == "__main__":
-    # 初始化
-    pygame.init()
-    
-    # 语言检测
-    language = 'zh' # 既然是在国内，默认设为中文最稳
+def main():
+    # 2. 在导入游戏逻辑前先初始化 Pygame
+    try:
+        pygame.init()
+    except Exception as e:
+        print(f"Pygame init failed: {e}")
+        return
+
+    # 3. 延迟导入，确保 Pygame 环境已稳定
+    # 这样可以防止在安卓上产生循环导入或资源锁死
+    from game_mobile import SudokuGameMobile
     
     try:
-        game = SudokuGameMobile(language=language)
+        # 直接启动中文版
+        game = SudokuGameMobile(language='zh')
         game.run()
     except Exception as e:
-        # 如果崩溃，将错误记录在本地，方便日后排查
-        with open(os.path.join(current_dir, "crash_log.txt"), "w") as f:
-            f.write(f"Crash detected: {str(e)}")
+        # 记录崩溃日志（尝试写在私有目录）
+        try:
+            with open("crash_log.txt", "w") as f:
+                f.write(str(e))
+        except:
+            pass
         pygame.quit()
-        sys.exit()
+
+if __name__ == "__main__":
+    main()

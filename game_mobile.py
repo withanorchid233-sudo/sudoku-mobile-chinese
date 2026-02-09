@@ -32,26 +32,24 @@ CORRECT_COLOR = (100, 255, 150)
 
 class SudokuGameMobile:
     def __init__(self, language='en'):
+        # 确保 pygame 已初始化
         if not pygame.get_init():
             pygame.init()
         
-        # 1. 动态获取屏幕尺寸（最稳妥的顺序）
+        # 1. 设置屏幕（强制使用 SCALED 模式，提高安卓兼容性）
         info = pygame.display.Info()
         self.width = info.current_w if info.current_w > 0 else 800
         self.height = info.current_h if info.current_h > 0 else 1200
+        self.screen = pygame.display.set_mode((self.width, self.height), pygame.SCALED | pygame.FULLSCREEN)
         
-        # 2. 全屏初始化
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN | pygame.SCALED)
         pygame.display.set_caption("Sudoku 3D")
         self.clock = pygame.time.Clock()
         
-        # 3. 计算布局参数
-        self.grid_size = min(int(self.width * 0.95), 550)
-        self.cell_size = self.grid_size // 9
-        self.grid_x = (self.width - self.grid_size) // 2
-        self.grid_y = int(self.height * 0.12)
+        # 2. 语言设置
+        self.language = language
+        self.texts = self._get_texts()
         
-        # 4. 字体缩放系统
+        # 3. 字体延迟加载优化
         font_scale = self.width / 400
         self.title_font = get_safe_fonts(int(24 * font_scale), bold=True)
         self.cell_font = get_safe_fonts(int(18 * font_scale), bold=True)
@@ -59,9 +57,17 @@ class SudokuGameMobile:
         self.button_font = get_safe_fonts(int(12 * font_scale), bold=True)
         self.number_button_font = get_safe_fonts(int(16 * font_scale), bold=True)
         
-        # Managers
+        # 4. 逻辑引擎
         self.logic = SudokuLogic()
+        
+        # 🚀 关键修改：UI 管理器现在不带参数，稍后手动启动背景
         self.ui_manager = SudokuUIManager(self.screen)
+        
+        # 5. 布局参数计算
+        self.grid_size = min(int(self.width * 0.92), 520)
+        self.cell_size = self.grid_size // 9
+        self.grid_x = (self.width - self.grid_size) // 2
+        self.grid_y = int(self.height * 0.12)
         
         # Game state
         self.state = "menu"
